@@ -1,9 +1,24 @@
 import { ref, reactive } from 'vue'
+import { useSession } from './useSession.js'
 
 export function useChat() {
-  const messages = ref([])
   const isLoading = ref(false)
   const error = ref(null)
+  
+  // 使用 session 管理
+  const {
+    sessions,
+    currentSessionId,
+    currentSession,
+    currentMessages,
+    createNewSession,
+    switchSession,
+    deleteSession,
+    updateSessionTitle,
+    addMessageToCurrentSession,
+    updateLastMessageInCurrentSession,
+    clearCurrentSession
+  } = useSession()
   
   const config = reactive({
     apiUrl: '/api/v1/chat/completions',
@@ -14,12 +29,14 @@ export function useChat() {
   })
 
   const addMessage = (role, content) => {
-    messages.value.push({
+    const message = {
       id: Date.now() + Math.random(),
       role,
       content,
       timestamp: new Date()
-    })
+    }
+    addMessageToCurrentSession(message)
+    return message
   }
 
   const sendMessage = async (userMessage) => {
@@ -31,20 +48,14 @@ export function useChat() {
     error.value = null
     
     // Add empty assistant message for streaming
-    const assistantMessageId = Date.now() + Math.random()
-    messages.value.push({
-      id: assistantMessageId,
-      role: 'assistant',
-      content: '',
-      timestamp: new Date()
-    })
+    const assistantMessage = addMessage('assistant', '')
 
     try {
       // Prepare messages for API - exclude the empty assistant message we just added
       const apiMessages = [
         { role: 'system', content: config.systemMessage },
-        ...messages.value
-          .filter(msg => msg.id !== assistantMessageId) // Exclude the empty assistant message
+        ...currentMessages.value
+          .filter(msg => msg.id !== assistantMessage.id) // Exclude the empty assistant message
           .filter(msg => msg.role !== 'assistant' || msg.content.trim()) // Exclude empty assistant messages
           .slice(-10) // Keep only last 10 messages for context
           .map(msg => ({ role: msg.role, content: msg.content }))
@@ -95,13 +106,11 @@ export function useChat() {
             
             try {
               const parsed = JSON.parse(data)
-              const content = parsed.choices?.[0]?.delta?.content
+                             const content = parsed.choices?.[0]?.delta?.content
               if (content) {
                 // Update the assistant message content
-                const messageIndex = messages.value.findIndex(msg => msg.id === assistantMessageId)
-                if (messageIndex !== -1) {
-                  messages.value[messageIndex].content += content
-                }
+                assistantMessage.content += content
+                updateLastMessageInCurrentSession(assistantMessage.content)
               }
             } catch (e) {
               console.warn('Failed to parse SSE data:', data)
@@ -114,14 +123,19 @@ export function useChat() {
       console.error('Chat error:', err)
       
       // Remove the empty assistant message if there was an error
-      messages.value = messages.value.filter(msg => msg.id !== assistantMessageId)
+      if (currentSession.value && assistantMessage) {
+        const index = currentSession.value.messages.findIndex(msg => msg.id === assistantMessage.id)
+        if (index !== -1) {
+          currentSession.value.messages.splice(index, 1)
+        }
+      }
     } finally {
       isLoading.value = false
     }
   }
 
   const clearChat = () => {
-    messages.value = []
+    clearCurrentSession()
     error.value = null
   }
 
@@ -130,7 +144,17 @@ export function useChat() {
   }
 
   return {
-    messages,
+    // Session 管理
+    sessions,
+    currentSessionId,
+    currentSession,
+    currentMessages,
+    createNewSession,
+    switchSession,
+    deleteSession,
+    updateSessionTitle,
+    
+    // 聊天功能
     isLoading,
     error,
     config,

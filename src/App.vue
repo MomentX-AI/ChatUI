@@ -1,5 +1,16 @@
 <template>
   <div class="chat-app">
+    <!-- Sidebar -->
+    <Sidebar
+      :sessions="sessions"
+      :current-session-id="currentSessionId"
+      @create-session="createNewSession"
+      @switch-session="switchSession"
+      @delete-session="deleteSession"
+      @update-session-title="updateSessionTitle"
+    />
+    
+    <!-- Main Chat Area -->
     <div class="chat-container">
       <!-- Header -->
       <div class="chat-header">
@@ -51,9 +62,9 @@
         </div>
       </div>
 
-      <!-- Messages Area -->
-      <div class="messages-container" ref="messagesContainer">
-        <div v-if="messages.length === 0" class="welcome-message">
+              <!-- Messages Area -->
+        <div class="messages-container" ref="messagesContainer">
+          <div v-if="currentMessages.length === 0" class="welcome-message">
           <div class="welcome-content">
             <div class="welcome-icon">👋</div>
             <h2>歡迎使用 AI 聊天助手</h2>
@@ -72,13 +83,13 @@
           </div>
         </div>
 
-        <div v-else class="messages-list">
-          <ChatMessage
-            v-for="message in messages"
-            :key="message.id"
-            :message="message"
-          />
-        </div>
+                  <div v-else class="messages-list">
+            <ChatMessage
+              v-for="message in currentMessages"
+              :key="message.id"
+              :message="message"
+            />
+          </div>
 
         <!-- Error Message -->
         <div v-if="error" class="error-message">
@@ -101,19 +112,35 @@
 
 <script setup>
 import { ref, nextTick, watch } from 'vue'
+import Sidebar from './components/Sidebar.vue'
 import ChatMessage from './components/ChatMessage.vue'
 import ChatInput from './components/ChatInput.vue'
 import { useChat } from './composables/useChat.js'
 
 // Chat functionality
-const { messages, isLoading, error, config, sendMessage, clearChat, updateConfig } = useChat()
+const { 
+  sessions,
+  currentSessionId,
+  currentSession,
+  currentMessages,
+  createNewSession,
+  switchSession,
+  deleteSession,
+  updateSessionTitle,
+  isLoading, 
+  error, 
+  config, 
+  sendMessage, 
+  clearChat, 
+  updateConfig 
+} = useChat()
 
 // UI state
 const showSettings = ref(false)
 const messagesContainer = ref(null)
 
 // Auto scroll to bottom when new messages arrive
-watch(messages, () => {
+watch(currentMessages, () => {
   nextTick(() => {
     if (messagesContainer.value) {
       messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
@@ -136,18 +163,14 @@ const sendExampleMessage = (message) => {
 .chat-app {
   width: 100%;
   height: 100vh;
-  max-width: 1000px;
-  margin: 0 auto;
   display: flex;
-  flex-direction: column;
+  margin: 0 auto;
 }
 
 .chat-container {
+  flex: 1;
   background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -361,7 +384,7 @@ const sendExampleMessage = (message) => {
 
 @media (max-width: 768px) {
   .chat-app {
-    padding: 10px;
+    flex-direction: column;
   }
   
   .chat-title {
