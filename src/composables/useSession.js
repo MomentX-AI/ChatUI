@@ -1,49 +1,37 @@
-import { ref, reactive, watch, computed } from 'vue'
+import { ref, reactive, watch, computed, nextTick, triggerRef } from 'vue'
 
 export function useSession() {
   const sessions = ref([])
   const currentSessionId = ref(null)
   const isLoading = ref(false)
 
-  // 從 localStorage 加載數據
-  const loadFromStorage = () => {
+  // 檢查 localStorage 是否可用
+  const isLocalStorageAvailable = () => {
     try {
-      const savedSessions = localStorage.getItem('chat-sessions')
-      const savedCurrentId = localStorage.getItem('current-session-id')
-      
-      if (savedSessions) {
-        sessions.value = JSON.parse(savedSessions)
-      }
-      
-      if (savedCurrentId && sessions.value.find(s => s.id === savedCurrentId)) {
-        currentSessionId.value = savedCurrentId
-      } else if (sessions.value.length > 0) {
-        currentSessionId.value = sessions.value[0].id
-      }
-      
-      // 如果沒有任何 session，創建第一個
-      if (sessions.value.length === 0) {
-        createNewSession()
-      }
-    } catch (error) {
-      console.error('Error loading sessions from storage:', error)
-      createNewSession()
-    }
-  }
-
-  // 保存到 localStorage
-  const saveToStorage = () => {
-    try {
-      localStorage.setItem('chat-sessions', JSON.stringify(sessions.value))
-      localStorage.setItem('current-session-id', currentSessionId.value || '')
-    } catch (error) {
-      console.error('Error saving sessions to storage:', error)
+      const test = '__localStorage_test__'
+      localStorage.setItem(test, test)
+      localStorage.removeItem(test)
+      return true
+    } catch (e) {
+      return false
     }
   }
 
   // 生成唯一 ID
   const generateId = () => {
     return Date.now().toString(36) + Math.random().toString(36).substr(2)
+  }
+
+  // 保存到 localStorage
+  const saveToStorage = () => {
+    if (!isLocalStorageAvailable()) return
+    
+    try {
+      localStorage.setItem('chat-sessions', JSON.stringify(sessions.value))
+      localStorage.setItem('current-session-id', currentSessionId.value || '')
+    } catch (error) {
+      console.error('Error saving sessions to storage:', error)
+    }
   }
 
   // 創建新的 session
@@ -62,6 +50,40 @@ export function useSession() {
     saveToStorage()
     
     return sessionId
+  }
+
+  // 從 localStorage 加載數據
+  const loadFromStorage = () => {
+    if (!isLocalStorageAvailable()) {
+      createNewSession()
+      return
+    }
+    
+    try {
+      const savedSessions = localStorage.getItem('chat-sessions')
+      const savedCurrentId = localStorage.getItem('current-session-id')
+      
+      if (savedSessions) {
+        const parsedSessions = JSON.parse(savedSessions)
+        if (Array.isArray(parsedSessions)) {
+          sessions.value = parsedSessions
+        }
+      }
+      
+      if (savedCurrentId && sessions.value.find(s => s.id === savedCurrentId)) {
+        currentSessionId.value = savedCurrentId
+      } else if (sessions.value.length > 0) {
+        currentSessionId.value = sessions.value[0].id
+      }
+      
+      // 如果沒有任何 session，創建第一個
+      if (sessions.value.length === 0) {
+        createNewSession()
+      }
+    } catch (error) {
+      console.error('Error loading sessions from storage:', error)
+      createNewSession()
+    }
   }
 
   // 切換到指定 session
@@ -128,7 +150,13 @@ export function useSession() {
       const lastMessage = currentSession.messages[currentSession.messages.length - 1]
       lastMessage.content = content
       currentSession.updatedAt = new Date().toISOString()
-      saveToStorage()
+      
+      // 強制觸發響應式更新
+      triggerRef(sessions)
+      
+      nextTick(() => {
+        saveToStorage()
+      })
     }
   }
 
@@ -170,11 +198,11 @@ export function useSession() {
     }
   }
 
-  // 監聽變化自動保存
-  watch([sessions, currentSessionId], saveToStorage, { deep: true })
-
   // 初始化
   loadFromStorage()
+
+  // 監聽變化自動保存
+  watch([sessions, currentSessionId], saveToStorage, { deep: true })
 
   return {
     sessions,

@@ -58,6 +58,58 @@
             <label>系統訊息:</label>
             <textarea v-model="config.systemMessage" class="setting-textarea"></textarea>
           </div>
+          
+          <!-- Context Management Settings -->
+          <div class="setting-section">
+            <h4>對話記憶管理</h4>
+            <div class="setting-group">
+              <label>
+                <input 
+                  type="checkbox" 
+                  :checked="config.contextManagement.enabled"
+                  @change="updateContextConfig('enabled', $event.target.checked)"
+                />
+                啟用智能記憶管理
+              </label>
+            </div>
+            
+            <div class="setting-group">
+              <label>
+                <input 
+                  type="checkbox" 
+                  :checked="config.contextManagement.enableSummary"
+                  @change="updateContextConfig('enableSummary', $event.target.checked)"
+                  :disabled="!config.contextManagement.enabled"
+                />
+                啟用對話摘要
+              </label>
+            </div>
+            
+            <div class="setting-group">
+              <label>最大訊息數量:</label>
+              <input 
+                v-model.number="config.contextManagement.maxMessages" 
+                type="number" 
+                min="5" 
+                max="50" 
+                class="setting-input"
+                :disabled="!config.contextManagement.enabled"
+              />
+            </div>
+            
+            <div class="setting-group">
+              <label>摘要觸發閾值:</label>
+              <input 
+                v-model.number="config.contextManagement.summaryThreshold" 
+                type="number" 
+                min="10" 
+                max="30" 
+                class="setting-input"
+                :disabled="!config.contextManagement.enabled || !config.contextManagement.enableSummary"
+              />
+            </div>
+          </div>
+          
           <button @click="showSettings = false" class="settings-close-btn">關閉設定</button>
         </div>
       </div>
@@ -84,6 +136,15 @@
         </div>
 
                   <div v-else class="messages-list">
+            <!-- Context Info Component -->
+            <ContextInfo 
+              v-if="currentMessages.length > 0"
+              :context-info="getContextInfo()"
+              :config="config"
+              :show-config="false"
+              @update-config="updateConfig"
+            />
+            
             <ChatMessage
               v-for="message in currentMessages"
               :key="message.id"
@@ -115,6 +176,7 @@ import { ref, nextTick, watch } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import ChatMessage from './components/ChatMessage.vue'
 import ChatInput from './components/ChatInput.vue'
+import ContextInfo from './components/ContextInfo.vue'
 import { useChat } from './composables/useChat.js'
 
 // Chat functionality
@@ -132,7 +194,9 @@ const {
   config, 
   sendMessage, 
   clearChat, 
-  updateConfig 
+  updateConfig,
+  getContextInfo,
+  contextConfig
 } = useChat()
 
 // UI state
@@ -156,6 +220,16 @@ watch(config, (newConfig) => {
 // Example message handler
 const sendExampleMessage = (message) => {
   sendMessage(message)
+}
+
+// Context configuration handler
+const updateContextConfig = (key, value) => {
+  updateConfig({
+    contextManagement: {
+      ...config.contextManagement,
+      [key]: value
+    }
+  })
 }
 </script>
 
@@ -280,6 +354,34 @@ const sendExampleMessage = (message) => {
 
 .settings-close-btn:hover {
   background: #1976d2;
+}
+
+.setting-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.setting-section h4 {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.setting-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setting-group input[type="checkbox"] {
+  accent-color: #2196f3;
+}
+
+.setting-group input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .messages-container {
