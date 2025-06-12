@@ -136,6 +136,15 @@
         </div>
 
                   <div v-else class="messages-list">
+            <!-- Memory Test Component -->
+            <MemoryTest 
+              :context-info="getContextInfo()"
+              @send-message="sendMessage"
+            />
+            
+            <!-- Debug Panel -->
+            <DebugPanel />
+            
             <!-- Context Info Component -->
             <ContextInfo 
               v-if="currentMessages.length > 0"
@@ -177,6 +186,8 @@ import Sidebar from './components/Sidebar.vue'
 import ChatMessage from './components/ChatMessage.vue'
 import ChatInput from './components/ChatInput.vue'
 import ContextInfo from './components/ContextInfo.vue'
+import MemoryTest from './components/MemoryTest.vue'
+import DebugPanel from './components/DebugPanel.vue'
 import { useChat } from './composables/useChat.js'
 
 // Chat functionality

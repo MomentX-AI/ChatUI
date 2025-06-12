@@ -35,12 +35,12 @@ export function useChat() {
     model: 'TheDrummer/Rocinante-12B-v1.1-GGUF',
     temperature: 0.7,
     maxTokens: -1,
-    systemMessage: '你是一個友善且有幫助的 AI 助手。請根據對話歷史提供有意義的回答。',
+    systemMessage: '你是一個友善且有幫助的 AI 助手。請仔細閱讀並記住我們之間的完整對話歷史，在回答時要考慮之前討論過的所有內容和上下文。如果用戶提及之前的話題或問題，請明確引用相關的對話內容。',
     // 上下文管理配置
     contextManagement: {
       enabled: true,
-      maxMessages: 20,
-      summaryThreshold: 15,
+      maxMessages: 15,
+      summaryThreshold: 10,
       enableSummary: true
     }
   })
@@ -66,24 +66,37 @@ export function useChat() {
       stream: stream
     }
 
-    const response = await fetch(config.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody)
-    })
+    console.log('Making API request to:', config.apiUrl)
+    console.log('Request body:', JSON.stringify(requestBody, null, 2))
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
+    try {
+      const response = await fetch(config.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      })
 
-    if (stream) {
-      return response
-    } else {
-      // 非流式調用（用於摘要）
-      const result = await response.json()
-      return result.choices[0].message.content
+      console.log('API Response status:', response.status, response.statusText)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('API Error response:', errorText)
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+      }
+
+      if (stream) {
+        return response
+      } else {
+        // 非流式調用（用於摘要）
+        const result = await response.json()
+        console.log('Non-stream API result:', result)
+        return result.choices[0].message.content
+      }
+    } catch (fetchError) {
+      console.error('Fetch error:', fetchError)
+      throw fetchError
     }
   }
 
@@ -140,17 +153,27 @@ export function useChat() {
       }
 
       console.log(`Sending ${apiMessages.length} messages to API`)
+      console.log('API Messages:', JSON.stringify(apiMessages, null, 2))
 
       // 調用流式 API
       const response = await callApi(apiMessages, true)
+      console.log('API Response received, status:', response.status)
+      console.log('API Response headers:', Object.fromEntries(response.headers.entries()))
+      
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let totalChunks = 0
+      let totalContent = ''
 
       while (true) {
         const { done, value } = await reader.read()
-        if (done) break
+        if (done) {
+          console.log('Stream finished. Total chunks:', totalChunks, 'Total content length:', totalContent.length)
+          break
+        }
 
+        totalChunks++
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split('\n')
         buffer = lines.pop() // Keep incomplete line in buffer
@@ -158,18 +181,23 @@ export function useChat() {
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             const data = line.slice(6).trim()
-            if (data === '[DONE]') continue
+            if (data === '[DONE]') {
+              console.log('Received [DONE] signal')
+              continue
+            }
             
             try {
               const parsed = JSON.parse(data)
               const content = parsed.choices?.[0]?.delta?.content
               if (content) {
+                totalContent += content
                 // Update the assistant message content
                 assistantMessage.content += content
                 updateLastMessageInCurrentSession(assistantMessage.content)
+                console.log('Received content chunk:', content.length, 'chars', 'Total length:', assistantMessage.content.length)
               }
             } catch (e) {
-              console.warn('Failed to parse SSE data:', data)
+              console.warn('Failed to parse SSE data:', data, 'Error:', e.message)
             }
           }
         }

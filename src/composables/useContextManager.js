@@ -3,11 +3,11 @@ import { ref, computed } from 'vue'
 export function useContextManager() {
   // 配置參數
   const config = ref({
-    maxMessages: 20,          // 最大訊息數量
-    maxTokens: 3000,          // 估計的最大 token 數量
-    summaryThreshold: 15,     // 觸發摘要的訊息數量閾值
+    maxMessages: 100,          // 最大訊息數量
+    maxTokens: 30000,          // 估計的最大 token 數量
+    summaryThreshold: 10,     // 觸發摘要的訊息數量閾值
     enableSummary: true,      // 是否啟用摘要功能
-    summaryLength: 200        // 摘要長度限制
+    summaryLength: 3000        // 摘要長度限制
   })
 
   // 簡單的 token 估算（1 token ≈ 4 字符）
@@ -48,7 +48,16 @@ export function useContextManager() {
       const summaryMessages = [
         {
           role: 'system',
-          content: '請將以下對話簡潔地總結為重要信息，保留關鍵事實和上下文，限制在 200 字以內：'
+          content: `Role: You are the session scribe for a live role-play (RP) conversation. Compress the entire scene into as few tokens as possible without losing critical in-character detail so the next LLM can seamlessly stay in-world.
+
+Output Rules:
+- Language: English.
+- Length: ≤ no limits, but keep essential and details as possible 
+- Format: One tight paragraph of semicolon-separated clauses, written in third-person narrator voice — no line breaks.
+- Must keep: • Player & NPC names, roles, current disguises; • relationships and emotional tones; • spoken vows, bargains, secrets, and clues; • locations, timestamps, key props/items, HP/mana/status changes; • plot twists, decisions made, quest objectives, unresolved hooks, OOC rulings.
+- Must drop: greetings, apologies, meta chit-chat, filler, repeated jokes.
+- Style: Neutral, factual, lore-accurate; no new inventions, no commentary.
+- End token: Append exactly ### END SUMMARY on a new line.`
         },
         {
           role: 'user',
@@ -57,11 +66,14 @@ export function useContextManager() {
       ]
 
       // 調用 API 生成摘要
-      const summary = await apiCall(summaryMessages)
+      const rawSummary = await apiCall(summaryMessages)
+      
+      // 處理摘要響應，移除 END SUMMARY 標記
+      const summary = rawSummary.replace(/### END SUMMARY\s*$/i, '').trim()
       
       return {
-        role: 'assistant',
-        content: `[對話摘要] ${summary}`,
+        role: 'system',
+        content: `Previous conversation summary: ${summary}`,
         id: Date.now() + Math.random(),
         timestamp: new Date(),
         isSummary: true
@@ -90,29 +102,30 @@ export function useContextManager() {
 
     console.log(`Managing context: ${conversationMessages.length} messages, threshold: ${config.value.summaryThreshold}`)
 
-    // 如果啟用摘要且超過閾值
-    if (config.value.enableSummary && conversationMessages.length > config.value.summaryThreshold) {
-      // 取早期訊息進行摘要
-      const earlyMessages = conversationMessages.slice(0, -config.value.maxMessages + 5)
-      const recentMessages = conversationMessages.slice(-config.value.maxMessages + 5)
+          // 如果啟用摘要且超過閾值
+      if (config.value.enableSummary && conversationMessages.length > config.value.summaryThreshold) {
+        // 計算要保留的最近訊息數量 (確保摘要是有意義的)
+        const recentMessageCount = Math.min(8, Math.floor(config.value.maxMessages * 0.6))
+        const earlyMessages = conversationMessages.slice(0, -recentMessageCount)
+        const recentMessages = conversationMessages.slice(-recentMessageCount)
 
-      console.log(`Creating summary for ${earlyMessages.length} early messages`)
+        console.log(`Creating summary for ${earlyMessages.length} early messages, keeping ${recentMessages.length} recent messages`)
 
-      // 生成摘要
-      const summary = await createSummary(earlyMessages, apiCall)
-      
-      if (summary) {
-        // 返回：系統訊息 + 摘要 + 最近的訊息
-        return [
-          { role: 'system', content: systemMessage },
-          { role: 'assistant', content: summary.content },
-          ...recentMessages.map(msg => ({
-            role: msg.role,
-            content: msg.content
-          }))
-        ]
+        // 生成摘要
+        const summary = await createSummary(earlyMessages, apiCall)
+        
+        if (summary) {
+          // 返回：系統訊息 + 摘要 + 最近的訊息
+          return [
+            { role: 'system', content: systemMessage },
+            { role: 'system', content: summary.content },
+            ...recentMessages.map(msg => ({
+              role: msg.role,
+              content: msg.content
+            }))
+          ]
+        }
       }
-    }
 
     // 降級到滑動窗口策略
     console.log('Falling back to sliding window strategy')

@@ -147,12 +147,25 @@ export function useSession() {
   const updateLastMessageInCurrentSession = (content) => {
     const currentSession = sessions.value.find(s => s.id === currentSessionId.value)
     if (currentSession && currentSession.messages.length > 0) {
-      const lastMessage = currentSession.messages[currentSession.messages.length - 1]
-      lastMessage.content = content
+      const lastMessageIndex = currentSession.messages.length - 1
+      const lastMessage = currentSession.messages[lastMessageIndex]
+      
+      // 創建一個全新的訊息對象來確保響應式更新
+      const updatedMessage = { 
+        ...lastMessage, 
+        content,
+        timestamp: lastMessage.timestamp // 保持原始時間戳
+      }
+      
+      // 直接替換數組中的對象
+      currentSession.messages.splice(lastMessageIndex, 1, updatedMessage)
       currentSession.updatedAt = new Date().toISOString()
       
-      // 強制觸發響應式更新
+      // 強制觸發多種響應式更新
       triggerRef(sessions)
+      
+      // 記錄更新操作
+      console.log('Updated message content length:', content.length)
       
       nextTick(() => {
         saveToStorage()

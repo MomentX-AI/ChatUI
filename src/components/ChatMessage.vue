@@ -16,7 +16,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 
 const props = defineProps({
   message: {
@@ -24,6 +24,18 @@ const props = defineProps({
     required: true
   }
 })
+
+// 監控訊息內容變化
+watch(() => props.message.content, (newContent, oldContent) => {
+  if (props.message.role === 'assistant') {
+    console.log('ChatMessage: Content updated', {
+      id: props.message.id,
+      oldLength: oldContent?.length || 0,
+      newLength: newContent?.length || 0,
+      content: newContent?.substring(0, 50) + (newContent?.length > 50 ? '...' : '')
+    })
+  }
+}, { immediate: true })
 
 const formatTime = (timestamp) => {
   return new Date(timestamp).toLocaleTimeString('zh-TW', {
