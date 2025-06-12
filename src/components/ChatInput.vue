@@ -11,22 +11,30 @@
         rows="1"
         class="message-input"
       ></textarea>
+      
+      <!-- Stop button (shown when loading) -->
       <button
+        v-if="isLoading"
+        @click="handleStop"
+        class="stop-button"
+        title="停止生成"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+        </svg>
+      </button>
+      
+      <!-- Send button (shown when not loading) -->
+      <button
+        v-else
         @click="handleSubmit"
-        :disabled="!inputMessage.trim() || isLoading"
+        :disabled="!inputMessage.trim()"
         class="send-button"
       >
-        <span v-if="!isLoading">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22,2 15,22 11,13 2,9"></polygon>
-          </svg>
-        </span>
-        <div v-else class="loading-dots">
-          <div class="loading-dot"></div>
-          <div class="loading-dot"></div>
-          <div class="loading-dot"></div>
-        </div>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22,2 15,22 11,13 2,9"></polygon>
+        </svg>
       </button>
     </div>
   </div>
@@ -42,7 +50,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['send-message'])
+const emit = defineEmits(['send-message', 'stop-generation'])
 
 const inputMessage = ref('')
 const textareaRef = ref(null)
@@ -53,6 +61,10 @@ const handleSubmit = () => {
     inputMessage.value = ''
     resetHeight()
   }
+}
+
+const handleStop = () => {
+  emit('stop-generation')
 }
 
 const handleKeydown = (event) => {
@@ -128,12 +140,12 @@ const resetHeight = () => {
   color: #999;
 }
 
-.send-button {
+.send-button,
+.stop-button {
   width: 44px;
   height: 44px;
   border: none;
   border-radius: 50%;
-  background: #2196f3;
   color: white;
   cursor: pointer;
   display: flex;
@@ -141,6 +153,10 @@ const resetHeight = () => {
   justify-content: center;
   transition: all 0.2s;
   flex-shrink: 0;
+}
+
+.send-button {
+  background: #2196f3;
 }
 
 .send-button:hover:not(:disabled) {
@@ -158,15 +174,18 @@ const resetHeight = () => {
   transform: none;
 }
 
-.loading-dots {
-  display: flex;
-  gap: 2px;
+.stop-button {
+  background: #f44336;
 }
 
-.loading-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background-color: currentColor;
+.stop-button:hover {
+  background: #d32f2f;
+  transform: scale(1.05);
 }
+
+.stop-button:active {
+  transform: scale(0.95);
+}
+
+
 </style> 

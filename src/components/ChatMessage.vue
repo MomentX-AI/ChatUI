@@ -9,21 +9,128 @@
       <div class="message-header">
         <span class="message-role">{{ message.role === 'user' ? '你' : 'AI 助手' }}</span>
         <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+        <span v-if="message.editedAt" class="edit-indicator" title="已編輯">✏️</span>
+        
+        <!-- Action buttons -->
+        <div class="message-actions">
+          <!-- Edit button -->
+          <button 
+            class="action-btn edit-btn"
+            @click="toggleEdit"
+            :disabled="isLoading"
+            title="編輯訊息"
+          >
+            <span class="action-icon">✏️</span>
+          </button>
+          
+          <!-- Delete button -->
+          <button 
+            class="action-btn delete-btn"
+            @click="$emit('delete')"
+            :disabled="isLoading"
+            title="刪除訊息"
+          >
+            <span class="action-icon">🗑️</span>
+          </button>
+          
+          <!-- Regenerate button for assistant messages -->
+          <button 
+            v-if="message.role === 'assistant' && message.content.trim() && canRegenerate" 
+            class="action-btn regenerate-btn"
+            @click="$emit('regenerate')"
+            :disabled="isLoading"
+            title="重新生成回覆"
+          >
+            <span class="regenerate-icon">🔄</span>
+            <span class="regenerate-text">重新生成</span>
+          </button>
+        </div>
       </div>
-      <div class="message-text" v-html="formatMessage(message.content)"></div>
+      
+      <!-- Edit mode -->
+      <div v-if="isEditing" class="edit-mode">
+        <textarea 
+          v-model="editContent"
+          class="edit-textarea"
+          @keydown.ctrl.enter="saveEdit"
+          @keydown.esc="cancelEdit"
+          ref="editTextarea"
+        ></textarea>
+        <div class="edit-actions">
+          <button 
+            class="save-btn"
+            @click="saveEdit"
+            :disabled="!editContent.trim()"
+          >
+            ✅ 保存
+          </button>
+          <button 
+            class="cancel-btn"
+            @click="cancelEdit"
+          >
+            ❌ 取消
+          </button>
+        </div>
+      </div>
+      
+      <!-- Display mode -->
+      <div v-else class="message-text" v-html="formatMessage(message.content)"></div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, watch } from 'vue'
+import { computed, watch, ref, nextTick } from 'vue'
 
 const props = defineProps({
   message: {
     type: Object,
     required: true
+  },
+  canRegenerate: {
+    type: Boolean,
+    default: true
+  },
+  isLoading: {
+    type: Boolean,
+    default: false
   }
 })
+
+const emit = defineEmits(['regenerate', 'delete', 'edit'])
+
+// 編輯狀態
+const isEditing = ref(false)
+const editContent = ref('')
+const editTextarea = ref(null)
+
+// 切換編輯模式
+const toggleEdit = async () => {
+  isEditing.value = !isEditing.value
+  if (isEditing.value) {
+    editContent.value = props.message.content
+    await nextTick()
+    if (editTextarea.value) {
+      editTextarea.value.focus()
+      editTextarea.value.style.height = 'auto'
+      editTextarea.value.style.height = editTextarea.value.scrollHeight + 'px'
+    }
+  }
+}
+
+// 保存編輯
+const saveEdit = () => {
+  if (editContent.value.trim() && editContent.value !== props.message.content) {
+    emit('edit', props.message.id, editContent.value.trim())
+  }
+  isEditing.value = false
+}
+
+// 取消編輯
+const cancelEdit = () => {
+  isEditing.value = false
+  editContent.value = props.message.content
+}
 
 // 監控訊息內容變化
 watch(() => props.message.content, (newContent, oldContent) => {
@@ -148,5 +255,139 @@ const formatMessage = (content) => {
 
 .message-text :deep(em) {
   font-style: italic;
+}
+
+.edit-indicator {
+  font-size: 12px;
+  color: #666;
+  margin-left: 8px;
+}
+
+.message-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  font-size: 11px;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #666;
+  min-width: 28px;
+  justify-content: center;
+}
+
+.action-btn:hover:not(:disabled) {
+  background: #e0e0e0;
+  border-color: #ccc;
+  color: #333;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-icon {
+  font-size: 12px;
+}
+
+.regenerate-btn {
+  min-width: auto;
+  padding: 4px 8px;
+}
+
+.regenerate-icon {
+  font-size: 12px;
+  animation: none;
+}
+
+.regenerate-btn:disabled .regenerate-icon {
+  animation: spin 1s linear infinite;
+}
+
+.regenerate-text {
+  font-weight: 500;
+}
+
+.edit-mode {
+  margin-top: 8px;
+}
+
+.edit-textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  background: #fff;
+  color: #333;
+}
+
+.edit-textarea:focus {
+  outline: none;
+  border-color: #2196f3;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+}
+
+.edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+
+.save-btn,
+.cancel-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  border: 1px solid;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #fff;
+}
+
+.save-btn {
+  color: #4caf50;
+  border-color: #4caf50;
+}
+
+.save-btn:hover:not(:disabled) {
+  background: #4caf50;
+  color: white;
+}
+
+.save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancel-btn {
+  color: #f44336;
+  border-color: #f44336;
+}
+
+.cancel-btn:hover {
+  background: #f44336;
+  color: white;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style> 

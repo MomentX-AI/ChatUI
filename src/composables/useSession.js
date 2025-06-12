@@ -183,6 +183,56 @@ export function useSession() {
     }
   }
 
+  // 刪除當前 session 的最後一條訊息
+  const removeLastMessageFromCurrentSession = () => {
+    const currentSession = sessions.value.find(s => s.id === currentSessionId.value)
+    if (currentSession && currentSession.messages.length > 0) {
+      currentSession.messages.pop()
+      currentSession.updatedAt = new Date().toISOString()
+      saveToStorage()
+      return true
+    }
+    return false
+  }
+
+  // 刪除指定ID的訊息
+  const removeMessageFromCurrentSession = (messageId) => {
+    const currentSession = sessions.value.find(s => s.id === currentSessionId.value)
+    if (currentSession) {
+      const index = currentSession.messages.findIndex(msg => msg.id === messageId)
+      if (index !== -1) {
+        currentSession.messages.splice(index, 1)
+        currentSession.updatedAt = new Date().toISOString()
+        saveToStorage()
+        return true
+      }
+    }
+    return false
+  }
+
+  // 編輯指定ID的訊息內容
+  const editMessageInCurrentSession = (messageId, newContent) => {
+    const currentSession = sessions.value.find(s => s.id === currentSessionId.value)
+    if (currentSession) {
+      const index = currentSession.messages.findIndex(msg => msg.id === messageId)
+      if (index !== -1) {
+        const updatedMessage = {
+          ...currentSession.messages[index],
+          content: newContent,
+          editedAt: new Date().toISOString() // 記錄編輯時間
+        }
+        currentSession.messages.splice(index, 1, updatedMessage)
+        currentSession.updatedAt = new Date().toISOString()
+        triggerRef(sessions)
+        nextTick(() => {
+          saveToStorage()
+        })
+        return true
+      }
+    }
+    return false
+  }
+
   // 計算屬性：當前 session
   const currentSession = computed(() => {
     return sessions.value.find(s => s.id === currentSessionId.value) || null
@@ -230,6 +280,9 @@ export function useSession() {
     addMessageToCurrentSession,
     updateLastMessageInCurrentSession,
     clearCurrentSession,
+    removeLastMessageFromCurrentSession,
+    removeMessageFromCurrentSession,
+    editMessageInCurrentSession,
     formatTime
   }
 } 

@@ -158,6 +158,11 @@
               v-for="message in currentMessages"
               :key="message.id"
               :message="message"
+              :is-loading="isLoading"
+              :can-regenerate="message.role === 'assistant' && message === currentMessages[currentMessages.length - 1]"
+              @regenerate="regenerateLastResponse"
+              @delete="handleDeleteMessage(message.id)"
+              @edit="handleEditMessage"
             />
           </div>
 
@@ -175,6 +180,7 @@
       <ChatInput
         :is-loading="isLoading"
         @send-message="sendMessage"
+        @stop-generation="stopGeneration"
       />
     </div>
   </div>
@@ -207,7 +213,11 @@ const {
   clearChat, 
   updateConfig,
   getContextInfo,
-  contextConfig
+  contextConfig,
+  regenerateLastResponse,
+  deleteMessage,
+  editMessage,
+  stopGeneration
 } = useChat()
 
 // UI state
@@ -241,6 +251,17 @@ const updateContextConfig = (key, value) => {
       [key]: value
     }
   })
+}
+
+// Message management handlers
+const handleDeleteMessage = (messageId) => {
+  if (confirm('確定要刪除這條訊息嗎？這個操作無法撤銷。')) {
+    deleteMessage(messageId)
+  }
+}
+
+const handleEditMessage = (messageId, newContent) => {
+  editMessage(messageId, newContent)
 }
 </script>
 
