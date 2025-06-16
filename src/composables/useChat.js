@@ -62,6 +62,17 @@ export function useChat() {
 
   // 調用 API 的輔助函數（用於生成摘要）
   const callApi = async (messages, stream = false, controller = null) => {
+    // 驗證 messages 參數
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      throw new Error('Invalid messages: messages must be a non-empty array')
+    }
+
+    // 驗證每個 message 的格式
+    const invalidMessage = messages.find(msg => !msg.role || !msg.content)
+    if (invalidMessage) {
+      throw new Error('Invalid message format: each message must have role and content')
+    }
+
     const requestBody = {
       model: config.model,
       messages: messages,
@@ -72,6 +83,7 @@ export function useChat() {
 
     console.log('Making API request to:', config.apiUrl)
     console.log('Request body:', JSON.stringify(requestBody, null, 2))
+    console.log('Messages count:', messages.length)
 
     try {
       const fetchOptions = {

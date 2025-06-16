@@ -40,10 +40,24 @@ export function useContextManager() {
   // 創建對話摘要
   const createSummary = async (messages, apiCall) => {
     try {
-      const conversationText = messages
+      // 過濾並驗證訊息
+      const validMessages = messages
         .filter(msg => msg.role !== 'system')
+        .filter(msg => msg.content && msg.content.trim())
+
+      if (validMessages.length === 0) {
+        console.warn('No valid messages for summary')
+        return null
+      }
+
+      const conversationText = validMessages
         .map(msg => `${msg.role === 'user' ? '用戶' : 'AI'}：${msg.content}`)
         .join('\n')
+
+      if (!conversationText.trim()) {
+        console.warn('Empty conversation text for summary')
+        return null
+      }
 
       const summaryMessages = [
         {
@@ -65,8 +79,21 @@ Output Rules:
         }
       ]
 
+      // 驗證摘要訊息格式
+      if (!summaryMessages.every(msg => msg.role && msg.content)) {
+        console.error('Invalid summary messages format')
+        return null
+      }
+
+      console.log('Creating summary with', summaryMessages.length, 'messages')
+
       // 調用 API 生成摘要
       const rawSummary = await apiCall(summaryMessages)
+      
+      if (!rawSummary || !rawSummary.trim()) {
+        console.warn('Empty summary response')
+        return null
+      }
       
       // 處理摘要響應，移除 END SUMMARY 標記
       const summary = rawSummary.replace(/### END SUMMARY\s*$/i, '').trim()

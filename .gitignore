@@ -57,4 +57,10 @@ jspm_packages/
 *.tgz
 
 # Yarn Integrity file
-.yarn-integrity 
+.yarn-integrity
+
+# Desktop application builds
+desktop/main.js
+*.exe
+ChatUI-*
+desktop-builds/ 

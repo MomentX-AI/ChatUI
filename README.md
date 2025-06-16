@@ -27,6 +27,8 @@
 
 ## 安裝與運行
 
+### 網頁版
+
 1. **安裝依賴**
 ```bash
 npm install
@@ -41,6 +43,24 @@ npm run dev
 ```bash
 npm run build
 ```
+
+### 桌面版 🖥️
+
+**方案一：快速啟動（推薦）**
+1. **雙擊 `desktop/ChatUI.bat`** - 一鍵啟動
+2. 應用會自動在瀏覽器中開啟
+3. 無需手動操作，全自動化
+
+**方案二：打包成可執行檔案**
+```bash
+# 安裝依賴
+npm install
+
+# 構建並打包
+npm run build:desktop
+```
+
+> 📋 詳細說明請參考 [`desktop/README.md`](desktop/README.md)
 
 ## 使用說明
 
